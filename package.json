@@ -7,9 +7,9 @@
     "telegraf": "^3.38.0",
     "util": "^0.12.3",
     "request-promise": "^4.2.6",
-    "Cron" : "^1.8.2",
+    "cron" : "^1.8.2",
     "nodemailer": "^6.4.11",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0-rc.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
