@@ -3,22 +3,23 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
-    "request": "^2.88.2",
-    "telegraf": "^3.38.0",
-    "util": "^0.12.3",
-    "request-promise": "^4.2.6",
-    "cron" : "^1.8.2",
+    "cheerio": "^1.0.0-rc.3",
+    "cron": "^1.8.2",
     "nodemailer": "^6.4.11",
-    "cheerio": "^1.0.0-rc.3"
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
+    "telegraf": "^3.38.0",
+    "util": "^0.12.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node bot.js"
   },
   "keywords": [],
-  "author": "https://github.com/victorakaps",
-  "license": "ISC",
+  "author": "Parth Sethi @victorakaps",
+  "license": "MIT",
   "description": ""
 }
