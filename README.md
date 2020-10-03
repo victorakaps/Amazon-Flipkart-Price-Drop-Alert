@@ -22,10 +22,11 @@ Put your Bot Token and email credentials and run node bot.js or npm start
 
     Added anydrop command, fixed issue with amazon deal of the day product, refactored the code following DRY Rule.
 
-#### TO Do
+#### TO DO
 
-    - [ ] Connect it to db, mongoose probably.
-    - [ ] impprove bot interaction and functioning.
+  [ ] Connect it to db, mongoose probably.
+  [ ] impprove bot interaction and functioning.
+
 
 #### Contributing
 
