@@ -24,12 +24,12 @@ Put your Bot Token and email credentials and run node bot.js or npm start
 
 #### TO DO
 
-  Connect it to db, mongoose probably, improve bot interaction and functioning.
+    Connect it to db, mongoose probably, improve bot interaction and functioning.
 
 
 #### Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+    Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
