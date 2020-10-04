@@ -31,6 +31,7 @@ bot.command("start", (ctx) => {
   user.prices = [];
   user.initPrice = [];
   user.anydrop = false;
+  user.kick = true;
   users.push(user);
 });
 
@@ -77,6 +78,11 @@ bot.command("track", async (ctx) => {
 bot.command("anydrop", (ctx) => {
   let user = users.find((x) => x.id === ctx.chat.id);
   user.anydrop = true;
+});
+
+bot.command("kick", (ctx) => {
+  let user = users.find((x) => x.id === ctx.chat.id);
+  user.kick = !user.kick;
 });
 
 bot.command("price", (ctx) => {
@@ -146,7 +152,10 @@ async function dosomething(ctx) {
         link = user.tasks[i];
         let minPrice = user.prices[i];
         price = await curPrice(link);
-        if (price < minPrice || (user.anydrop && price < initPrice)) {
+        if (
+          user.kick &&
+          (price < minPrice || (user.anydrop && price < initPrice))
+        ) {
           ctx.reply(`Price Dropped to ${price}`);
           ctx.reply(`Email Sent to ${user.email}`);
           ctx.reply(`Buy Now: ${link}`);
@@ -154,6 +163,7 @@ async function dosomething(ctx) {
           console.log(users);
           user.prices[i] = null;
           user.tasks[i] = null;
+          user.initPrice[i] = null;
           console.log(users);
         }
       }
