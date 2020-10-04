@@ -131,7 +131,7 @@ async function curPrice(url) {
     }
   } else {
     for (let i = 0; i < flipkartClasses.length; i++) {
-      price = scrapPrice(flipkartClasses[i], response);
+      price = await scrapPrice(flipkartClasses[i], response);
       if (price) {
         break;
       } else {
