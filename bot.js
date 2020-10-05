@@ -2,15 +2,17 @@ const ch = require("cheerio");
 const CronJob = require("cron").CronJob;
 const nodemailer = require("nodemailer");
 const rp = require("request-promise");
+const fs = require("fs");
 const { Telegraf } = require("telegraf");
 
-const BOT_TOKEN = "YOUR BOT TOKEN GOES HERE";
+let { data } = require("./data");
+
+const BOT_TOKEN = "PUT YOUR BOT TOKEN HERE";
 const SENDER_EMAIL = "EMAIL ADRESS FROM WHICH YOU WANT TO SEND NOTIFICATIONS";
 const SENDER_PASS = "EMAIL PASSWORD";
 
 const bot = new Telegraf(BOT_TOKEN);
-
-let users = [];
+let users = data;
 let curUser;
 let link = "";
 let amazonClasses = [
@@ -20,24 +22,35 @@ let amazonClasses = [
 ];
 let flipkartClasses = ["._3qQ9m1"];
 
+const updateData = () => {
+  let ass = `module.exports = {
+    data: ${JSON.stringify(users)}
+  };`;
+  fs.writeFileSync("./data.js", ass);
+};
+
 bot.command("start", (ctx) => {
   ctx.reply(
     `Hi, ${ctx.chat.first_name}\nTo get Started send email you want to be alerted to like\n /email xyz@gmail.com\nfollowed by /track url where url is the link of product\nfollowed by /price xyz where xyz is min price to be allerted.`
   );
-  var user = new Object();
-  user.id = ctx.chat.id;
-  user.email = "";
-  user.tasks = [];
-  user.prices = [];
-  user.initPrice = [];
-  user.anydrop = false;
-  user.kick = true;
-  users.push(user);
+  let userExists = users.find((x) => x.id === ctx.chat.id);
+  if (!userExists) {
+    let user = new Object();
+    user.id = ctx.chat.id;
+    user.email = "";
+    user.tasks = [];
+    user.prices = [];
+    user.initPrice = [];
+    user.anydrop = false;
+    user.kick = true;
+    users.push(user);
+  }
+  updateData();
 });
 
 bot.command("help", (ctx) => {
   ctx.reply(
-    `Hi, ${ctx.chat.first_name}\nTo get Started send email like\n /email xyz@gmail.com\nfollowed by /track url where url is the link of product\nfollowed by /price xyz where xyz is min price to be allerted.\nUSe /example to see format.`
+    `Hi, ${ctx.chat.first_name}\nTo get Started send email like\n /email xyz@gmail.com\nfollowed by /track url where url is the link of product\nfollowed by /price xyz where xyz is min price to be allerted.\nUSe /example to see format.\n USe /kick to pause/resume notifications\nUse /anydrop to get notified for any drop in price.`
   );
   ctx.reply("FIND ME ON GIT: https://github.com/victorakaps");
 });
@@ -52,13 +65,14 @@ bot.command("example", (ctx) => {
 
 bot.command("email", (ctx) => {
   let user = users.find((x) => x.id === ctx.chat.id);
-  var str = ctx.message.text;
+  let str = ctx.message.text;
   str = str.slice(7);
   user.email = str;
+  updateData();
 });
 
 bot.command("track", async (ctx) => {
-  var str = ctx.message.text;
+  let str = ctx.message.text;
   link = str.slice(7);
   let user = users.find((x) => x.id === ctx.chat.id);
   if (user) {
@@ -70,9 +84,14 @@ bot.command("track", async (ctx) => {
         price - 150
       }`
     );
+    updateData();
   } else {
     ctx.reply("PLEASE SEND A VALID LINK.");
   }
+});
+
+bot.command("log", (ctx) => {
+  console.log(users);
 });
 
 bot.command("anydrop", (ctx) => {
@@ -86,14 +105,14 @@ bot.command("kick", (ctx) => {
 });
 
 bot.command("price", (ctx) => {
-  var str = ctx.message.text;
+  let str = ctx.message.text;
   price = str.slice(7);
   let user = users.find((x) => x.id === ctx.chat.id);
   if (user) {
     user.prices.push(price);
-    console.log(user);
     startTracking(ctx);
     ctx.reply(`Intiated Alert for ${price}Rs.`);
+    updateData();
   } else {
     ctx.reply("YOU MUST SEND PRICE.");
   }
@@ -103,23 +122,22 @@ async function scrapPrice(key, response) {
   let price;
   ch(key, response).each(function () {
     price = ch(this).text();
-    console.log(price);
     price = Number(price.replace(/[^0-9.-]+/g, ""));
   });
   return price;
 }
 
 async function curPrice(url) {
-  var amazon = url.includes("amazon");
+  let amazon = url.includes("amazon");
   let price;
-  var options = {
+  let options = {
     uri: url,
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36",
     },
   };
-  var response = await rp(options);
+  let response = await rp(options);
   if (amazon) {
     for (let i = 0; i < amazonClasses.length; i++) {
       price = await scrapPrice(amazonClasses[i], response);
@@ -142,7 +160,7 @@ async function curPrice(url) {
   return price;
 }
 
-async function dosomething(ctx) {
+async function checkTasks(ctx) {
   let user = users.find((x) => x.id === ctx.chat.id);
   curUser = user;
   let n = user.tasks.length;
@@ -160,11 +178,9 @@ async function dosomething(ctx) {
           ctx.reply(`Email Sent to ${user.email}`);
           ctx.reply(`Buy Now: ${link}`);
           sendNotification(price);
-          console.log(users);
           user.prices[i] = null;
           user.tasks[i] = null;
           user.initPrice[i] = null;
-          console.log(users);
         }
       }
     }
@@ -200,7 +216,8 @@ async function startTracking(ctx) {
   let job = new CronJob(
     "* */30 * * * *",
     function () {
-      dosomething(ctx);
+      checkTasks(ctx);
+      updateData();
     },
     null,
     true,
