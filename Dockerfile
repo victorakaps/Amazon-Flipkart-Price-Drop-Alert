@@ -7,4 +7,4 @@ RUN apk add build-base python3 py3-pip
 
 COPY . .
 RUN npm install
-CMD ["node", "bot.js"]
+CMD ["npm", "start"]
