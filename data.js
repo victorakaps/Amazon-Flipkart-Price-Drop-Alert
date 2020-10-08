@@ -1,0 +1,3 @@
+module.exports = {
+    data: [{"id":601430671,"email":"sparth0200@gmail.com","tasks":["https://dl.flipkart.com/dl/daylfora-hanging-chain-pull-up-bar-chrome-plated-rod-height-increase-pull-up-chin-up/p/itmf6a9bde12b61f?pid=BAAFSQ2M7BAU9PHQ&cmpid=product.share.pp","https://www.amazon.in/dp/B0873L7J6X/ref=cm_sw_r_cp_apa_fab_Aq3EFb6S748Y0"],"prices":[],"productName":["DaylFora Hanging Chain/ Pull Up Bar with Chrome Plated Rod for Height Increase Pull-up Bar Chin-up Bar","Infinity Glide 510 On-Ear Wireless Headphone with Mic: Amazon.in: Electronics"],"initPrice":[309,1899],"anydrop":false,"kick":true}]
+  };
