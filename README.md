@@ -4,9 +4,9 @@
 
 <img align="left" src="https://i.imgur.com/c7ZEf9k.png" width="500px"/>
 
-#### Installation and Usage
+### Installation and Usage
 
-## Put your credentials in config.js file and run following commands
+#### Put your credentials in config.js file and run following commands
 `npm install`
 `npm start `
 
