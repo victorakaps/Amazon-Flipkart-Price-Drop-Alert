@@ -7,6 +7,7 @@
 ### Installation and Usage
 
 #### Put your credentials in config.js file and run following commands
+
 `npm install`
 `npm start `
 
@@ -30,7 +31,7 @@
 
 #### Contributing
 
-Pull requests are welcome. For major changes, please open an issue first or Ping me anytime on dicord or telegram @victorakaps for any query or assitance.
+Pull requests are welcome. For major changes, please open an issue first or Ping me anytime on dicord or telegram @victorakaps if you have any query or need assitance.
 
 ## License
 
