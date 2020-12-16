@@ -4,7 +4,7 @@
 
 #### CHECK OUT: https://parthsethi.herokuapp.com/bots
 
-<img align="left" src="https://i.imgur.com/cMQu5Jp.png" width="600px"/>
+<img align="left" src="https://i.imgur.com/c7ZEf9k.png" width="600px"/>
 
 #### Installation
 
