@@ -14,7 +14,7 @@ npm install
 
 #### Usage
 
-Put your Bot Token and email credentials in config.env file and run npm start.
+Put your credentials in config.js file and run `npm start`.
 Ping me anytime on dicord or telegram @victorakaps for any query or assitance.
 
 #### What's New
