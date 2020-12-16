@@ -7,9 +7,8 @@
 #### Installation and Usage
 
 ## Put your credentials in config.js file and run following commands
-
-    - `npm install`
-    - `npm start `
+`npm install`
+`npm start `
 
 #### What's New
 
