@@ -1,3 +1,4 @@
 node_modules
 config.env
-my.env
+test.js
+configpersonal.js

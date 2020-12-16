@@ -7,6 +7,7 @@
     "cheerio": "^1.0.0-rc.3",
     "cron": "^1.8.2",
     "env-cmd": "^10.1.0",
+    "mongoose": "^5.11.8",
     "nodemailer": "^6.4.11",
     "request": "^2.88.2",
     "telegraf": "^3.38.0",
@@ -16,8 +17,8 @@
     "nodemon": "^2.0.4"
   },
   "scripts": {
-    "start": "env-cmd -f ./config.env node bot.js",
-    "dev": "env-cmd -f ./config.env nodemon bot.js"
+    "start": "node bot.js",
+    "dev": "nodemon bot.js"
   },
   "keywords": [],
   "author": "Parth Sethi @victorakaps",

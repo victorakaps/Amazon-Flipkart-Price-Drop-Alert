@@ -2,81 +2,46 @@ const ch = require("cheerio");
 const CronJob = require("cron").CronJob;
 const nodemailer = require("nodemailer");
 const axios = require("axios");
-const fs = require("fs");
+const mongoose = require("mongoose");
+
 const { Telegraf } = require("telegraf");
+const WizardScene = require("telegraf/scenes/wizard");
+const Stage = require("telegraf/stage");
+const session = require("telegraf/session");
 
-let { data } = require("./data");
+const { BOT_TOKEN, SENDER_EMAIL, SENDER_PASS, MONGO_URI } = require("./config");
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const SENDER_EMAIL = process.env.SENDER_EMAIL;
-const SENDER_PASS = process.env.SENDER_PASS;
+const Product = require("./models/product.js");
+const User = require("./models/user.js");
 
 const bot = new Telegraf(BOT_TOKEN);
-let users = data;
-let curUser;
-let link = "";
+
+bot.use(session());
+
+mongoose.connect(MONGO_URI, {
+  useCreateIndex: true,
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useFindAndModify: false,
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("db connected");
+  startTracking();
+});
+mongoose.connection.on("error", () => console.error("error connecting to db"));
+
 let amazonClasses = [
   "#priceblock_saleprice",
   "#priceblock_ourprice",
   "#priceblock_dealprice",
 ];
-let flipkartClasses = ["._3qQ9m1"];
+let flipkartClasses = ["._30jeq3"];
 
-const updateData = () => {
-  let ass = `module.exports = {
-    data: ${JSON.stringify(users)}
-  };`;
-  fs.writeFileSync("./data.js", ass);
-};
-
-bot.command("start", (ctx) => {
-  ctx.reply(
-    `Hi, ${ctx.chat.first_name}\nTo get Started send email you want to be alerted to like\n /email xyz@gmail.com\nfollowed by /track url where url is the link of product\nfollowed by /price xyz where xyz is min price to be allerted.`
-  );
-  let userExists = users.find((x) => x.id === ctx.chat.id);
-  if (!userExists) {
-    let user = new Object();
-    user.id = ctx.chat.id;
-    user.email = "";
-    user.tasks = [];
-    user.prices = [];
-    user.initPrice = [];
-    user.productName = [];
-    user.anydrop = false;
-    user.kick = true;
-    users.push(user);
-  } else {
-    user = userExists;
-  }
-  updateData();
-});
-
-bot.command("help", (ctx) => {
-  ctx.reply(
-    `Hi, ${ctx.chat.first_name}\nTo get Started send email like\n /email xyz@gmail.com\nfollowed by /track url where url is the link of product\nfollowed by /price xyz where xyz is min price to be allerted.\nUSe /example to see format.\n USe /kick to pause/resume notifications\nUse /anydrop to get notified for any drop in price.\nUse /list command to see your saved products.`
-  );
-  ctx.reply("FIND ME ON GIT: https://github.com/victorakaps");
-});
-
-bot.command("example", (ctx) => {
-  ctx.reply("/email xyzexample@gmail.com");
-  ctx.reply(
-    "/track https://www.amazon.in/dp/B01N7K4CEU/ref=cm_sw_r_cp_apa_i_XtqtFb2N5D636"
-  );
-  ctx.reply("/price 2700");
-});
-
-bot.command("email", (ctx) => {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  let str = ctx.message.text;
-  str = str.slice(7);
-  user.email = str;
-  updateData();
-});
-
-async function scrapProductName(url) {
+async function getProductName(url) {
   let key;
-  url.includes("amazon") ? (key = "title") : (key = "._35KyD6");
+  let productName;
+  url.includes("amazon") ? (key = "#title") : (key = ".B_NuCI");
   let response;
   await axios({
     method: "get",
@@ -87,92 +52,10 @@ async function scrapProductName(url) {
     },
   }).then((res) => (response = res.data));
   ch(key, response).each(function () {
-    productName = ch(this).text();
+    productName = ch(this).text().trim();
   });
   return productName;
 }
-
-bot.command("list", (ctx) => {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  let msgString = "";
-  if (user.tasks.length) {
-    for (let i = 0; i < user.tasks.length; i++) {
-      msgString += `${i + 1}. ${user.productName[i]}\n`;
-      msgString += "\n";
-    }
-    msgString +=
-      "\nTo delete an item use /delete followed by its serial number.\nLike /delete 1";
-    ctx.reply(msgString);
-  }
-});
-
-bot.command("delete", (ctx) => {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  let prodNum = ctx.message.text;
-  prodNum = +prodNum.slice(8);
-  let i = prodNum - 1;
-  if (prodNum >= 1 && prodNum <= user.tasks.length) {
-    ctx.reply(`Delted ${user.productName[i]} from the list.`);
-    user.prices[i] = null;
-    user.tasks[i] = null;
-    user.initPrice[i] = null;
-    user.productName[i] = null;
-  }
-});
-
-bot.command("track", async (ctx) => {
-  let str = ctx.message.text;
-  link = str.slice(7);
-  let user = users.find((x) => x.id === ctx.chat.id);
-  if (user) {
-    user.tasks.push(link);
-    let price = await curPrice(link);
-    if (price) {
-      user.initPrice.push(price);
-      ctx.reply(
-        `Current price is ${price}.\nSet min price using /price command.\neg: /price ${Math.floor(
-          price - price * 0.1
-        )}`
-      );
-    } else {
-      ctx.reply("Something went wrong, maybe product is out of stock.");
-    }
-  } else {
-    ctx.reply("PLEASE SEND A VALID LINK.");
-  }
-  let prodName = await scrapProductName(link);
-  prodName = prodName.replace("\n", "");
-  user.productName.push(prodName);
-  updateData();
-});
-
-bot.command("log", (ctx) => {
-  console.log(users);
-});
-
-bot.command("anydrop", (ctx) => {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  user.anydrop = true;
-});
-
-bot.command("kick", (ctx) => {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  user.kick = !user.kick;
-});
-
-bot.command("price", (ctx) => {
-  let str = ctx.message.text;
-  price = str.slice(7);
-  let user = users.find((x) => x.id === ctx.chat.id);
-  if (user) {
-    user.prices.push(price);
-    startTracking(ctx);
-    ctx.reply(`Intiated Alert for ${price}Rs.`);
-    updateData();
-  } else {
-    ctx.reply("YOU MUST SEND PRICE.");
-  }
-});
 
 async function scrapPrice(key, response) {
   let price;
@@ -184,7 +67,7 @@ async function scrapPrice(key, response) {
 }
 
 async function curPrice(url) {
-  let amazon = url.includes("amazon");
+  let isAmazon = url.includes("amazon");
   let price;
 
   let response;
@@ -196,7 +79,7 @@ async function curPrice(url) {
         "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36",
     },
   }).then((res) => (response = res.data));
-  if (amazon) {
+  if (isAmazon) {
     for (let i = 0; i < amazonClasses.length; i++) {
       price = await scrapPrice(amazonClasses[i], response);
       if (price) {
@@ -218,34 +101,197 @@ async function curPrice(url) {
   return price;
 }
 
-async function checkTasks(ctx) {
-  let user = users.find((x) => x.id === ctx.chat.id);
-  curUser = user;
-  let n = user.tasks.length;
-  if (n > 0) {
-    for (i = 0; i < n; i++) {
-      if (user.tasks[i]) {
-        link = user.tasks[i];
-        let minPrice = user.prices[i];
-        price = await curPrice(link);
-        if (
-          user.kick &&
-          (price < minPrice || (user.anydrop && price < initPrice))
-        ) {
-          ctx.reply(`Price Dropped to ${price}`);
-          ctx.reply(`Email Sent to ${user.email}`);
-          ctx.reply(`Buy Now: ${link}`);
-          sendNotification(price);
-          user.prices[i] = null;
-          user.tasks[i] = null;
-          user.initPrice[i] = null;
-        }
-      }
-    }
+const newUserWizard = new WizardScene(
+  "newUser",
+  async (ctx) => {
+    await ctx.replyWithMarkdown(
+      "*Please enter the email you want to be notified to*"
+    );
+    ctx.wizard.state.userid = ctx.chat.id;
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    ctx.wizard.state.email = ctx.message.text;
+    await ctx.replyWithMarkdown(
+      "use */add command* for adding a price drop alert."
+    );
+    addUser(ctx.wizard.state);
+    return ctx.scene.leave();
   }
+);
+
+function isValidURL(string) {
+  var res = string.match(
+    /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g
+  );
+  return res !== null;
 }
 
-async function sendNotification(price) {
+const addProductWizard = new WizardScene(
+  "addProduct",
+  async (ctx) => {
+    await ctx.replyWithMarkdown("*Please enter the link of the product*");
+    ctx.wizard.state.userid = ctx.chat.id;
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    if (!isValidURL(ctx.message.text)) {
+      await ctx.replyWithMarkdown("*Invalid URL!*");
+      return ctx.scene.leave();
+    }
+    ctx.wizard.state.url = ctx.message.text;
+
+    ctx.wizard.state.name = await getProductName(ctx.wizard.state.url);
+    await ctx.replyWithMarkdown(`*Product is* ${ctx.wizard.state.name}`);
+    ctx.wizard.state.initPrice = await curPrice(ctx.wizard.state.url);
+    await ctx.replyWithMarkdown(
+      `Current price is *${ctx.wizard.state.initPrice}rs*`
+    );
+    await ctx.replyWithMarkdown(
+      "*Enter the price you want to be notified for*"
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    ctx.wizard.state.dropPrice = parseInt(ctx.message.text);
+    //  add anydrop here later
+    await ctx.replyWithMarkdown(
+      `*Alert added for ${ctx.wizard.state.dropPrice}rs*`
+    );
+    addProduct(ctx.scene.state);
+    return ctx.scene.leave();
+  }
+);
+
+const deleteWizard = new WizardScene(
+  "deleteProduct",
+  async (ctx) => {
+    await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
+    await ctx.replyWithMarkdown(
+      "Send The *4-Digit code* of the product that you want to remove.(Send *q* to exit)"
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    if (ctx.message.text === "q") {
+      return ctx.scene.leave();
+    } else {
+      uniqid = ctx.message.text;
+      Product.findOne({ uniqid }).exec((err, product) => {
+        if (err || !product) {
+          ctx.replyWithMarkdown("*Something went wrong!*");
+          console.log(err);
+        } else {
+          product
+            .remove()
+            .then((product) => {
+              ctx.replyWithMarkdown(`*Removed* ${product.name}`);
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }
+      });
+    }
+    return ctx.scene.leave();
+  }
+);
+
+const stage = new Stage([newUserWizard, addProductWizard, deleteWizard]);
+bot.use(stage.middleware());
+
+bot.start(async (ctx) => {
+  ctx.scene.enter("newUser");
+});
+
+bot.command("add", (ctx) => {
+  ctx.scene.enter("addProduct");
+});
+
+bot.command("kick", (ctx) => {
+  User.findOne({ userid: ctx.chat.id }).then(({ _id, pause }) => {
+    pause = !pause;
+    User.findByIdAndUpdate(
+      _id,
+      { $set: { pause } },
+      { new: true },
+      (err, res) => {
+        if (err) {
+          console.log(err);
+        } else {
+          ctx.replyWithMarkdown(
+            `*Tracking ${res.pause ? "Paused" : "Resumed"}*`
+          );
+        }
+      }
+    );
+  });
+});
+
+bot.command("/log", async (ctx) => {
+  if (ctx.chat.id == 601430671) {
+    User.find().then((users) => {
+      let userStr = users.map(({ email, userid }) => ({ email, userid }));
+      bot.telegram.sendMessage(601430671, userStr);
+    });
+  }
+});
+
+bot.command("/list", async (ctx) => {
+  Product.find({ userid: ctx.chat.id }).then(async (products) => {
+    if (products.length) {
+      products.forEach(async (product, i) => {
+        await ctx.replyWithMarkdown(
+          `☛ ${product.name.slice(0, 40)} CODE => *${product.uniqid}*`
+        );
+      });
+      ctx.scene.enter("deleteProduct");
+    } else {
+      await ctx.replyWithHTML(
+        "★ Tracking list is Empty use /add command to track products. ★"
+      );
+      await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
+    }
+  });
+});
+
+bot.command("/help", async (ctx) => {
+  ctx.replyWithMarkdown(
+    "✔ USE /add command to track a product \n✔USE /list command to display and delete product(s)\n✔USE /kick command to pause the notifications."
+  );
+});
+
+bot.launch();
+
+const trackPrices = async () => {
+  Product.find().then((products) => {
+    products.forEach(
+      async ({ name, anydrop, url, userid, initPrice, dropPrice, email }) => {
+        name = name.slice(0, 15);
+        const nowPrice = await curPrice(url);
+        if (nowPrice <= dropPrice) {
+          sendNotification(name, nowPrice, url, email, userid);
+        }
+      }
+    );
+  });
+};
+
+async function sendNotification(name, nowPrice, url, email, userid) {
+  User.find({ userid }).then((user) => {
+    if (!user[0].pause) {
+      console.log("sending message");
+      bot.telegram.sendMessage(
+        userid,
+        `Price of ${name} *dropped to ${nowPrice}Rs*, [Click here](${url}) to buy now`,
+        { parse_mode: "MarkdownV2" }
+      );
+      sendEmail(name, nowPrice, url, email);
+    }
+  });
+}
+
+async function sendEmail(name, nowPrice, url, email) {
   try {
     let transporter = nodemailer.createTransport({
       service: "gmail",
@@ -254,28 +300,67 @@ async function sendNotification(price) {
         pass: SENDER_PASS,
       },
     });
-
-    let textToSend = "Price dropped to " + price;
-    let htmlText = `<a href=\"${link}\">Click Here To Buy Now</a>`;
-
+    let textToSend = `Price of ${name} has dropped to ${nowPrice}Rs., thanks for using VictorBot(s)`;
+    let htmlText = `<a href=\"${url}\">Click Here To Buy Now</a>`;
     let info = await transporter.sendMail({
       from: `"Victor Price Tracker" <${SENDER_EMAIL}>`,
-      to: curUser.email,
-      subject: "Price dropped to " + price,
+      to: email,
+      subject: "Price dropped to " + nowPrice,
       text: textToSend,
       html: htmlText,
     });
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
   }
 }
 
-async function startTracking(ctx) {
+const addUser = ({ email, userid }) => {
+  const user = new User({
+    email,
+    userid,
+  });
+  user
+    .save()
+    .then((savedUser) => {
+      console.log("added new user");
+      bot.telegram.sendMessage(
+        601430671,
+        `new user signedup ~ ${savedUser.email} ~ ${savedUser.userid}`
+      );
+    })
+    .catch((err) => console.log(err));
+};
+const addProduct = ({ url, userid, name, initPrice, dropPrice }) => {
+  let uniqid = "";
+  const possible = "123456789";
+  for (let i = 0; i < 4; i++) {
+    let sup = Math.floor(Math.random() * possible.length);
+    uniqid += i > 0 && sup == i ? "0" : possible.charAt(sup);
+  }
+  User.findOne({ userid }).then(({ email }) => {
+    const product = new Product({
+      url,
+      userid,
+      name,
+      initPrice,
+      dropPrice,
+      email,
+      uniqid,
+    });
+    product
+      .save()
+      .then((addedProduct) => {
+        console.log("added new product");
+      })
+      .catch((err) => console.log(err));
+  });
+};
+
+async function startTracking() {
   let job = new CronJob(
-    "* */30 * * * *",
+    "*/5 * * * *", // checking every 5 minutes
     function () {
-      checkTasks(ctx);
-      updateData();
+      trackPrices();
     },
     null,
     true,
@@ -285,5 +370,3 @@ async function startTracking(ctx) {
   );
   job.start();
 }
-
-bot.launch();
