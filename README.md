@@ -2,19 +2,13 @@
 
 ### A telegram bot which alerts you if your registered product meets any set threshold price drop. it sends you email as well as msg on telegram.
 
-#### CHECK OUT: https://parthsethi.herokuapp.com/bots
-
 <img align="left" src="https://i.imgur.com/c7ZEf9k.png" width="600px"/>
 
-#### Installation
+#### Installation and Usage
 
-```bash
-npm install
-```
-
-#### Usage
-
-Put your credentials in config.js file and run `npm start`.
+Put your credentials in config.js file and run following commands
+`npm install`
+`npm start `
 Ping me anytime on dicord or telegram @victorakaps for any query or assitance.
 
 #### What's New
