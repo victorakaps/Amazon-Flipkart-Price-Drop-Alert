@@ -19,15 +19,15 @@
 
 #### TO DO
 
-[x] Add inline menu
-[] Add anydrop command
-[] improve error and excetion handling.
+-[x] Add inline menu
+-[] Add anydrop command
+-[] improve error and excetion handling.
 
 #### Available Commands
 
     - /add ~ for tracking a product.
     - /list ~ for displaying and deleting product.
-    - /kick ~ for pauding/resuming notifications.
+    - /kick ~ for pausing/resuming notifications.
     - /help ~ for bot's manual page/.
 
 #### Contributing
