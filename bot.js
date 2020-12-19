@@ -38,6 +38,249 @@ let amazonClasses = [
 ];
 let flipkartClasses = ["._30jeq3"];
 
+/* --------------------- wizard scenes ---------------------- */
+
+const newUserWizard = new WizardScene(
+  "newUser",
+  async (ctx) => {
+    await ctx.replyWithMarkdown(
+      "*Please enter the email you want to be notified to*"
+    );
+    ctx.wizard.state.userid = ctx.chat.id;
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    ctx.wizard.state.email = ctx.message.text;
+    bot.telegram.sendMessage(ctx.chat.id, "CLICK ON BELOW BUTTON(s) TO:", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Add a Product", callback_data: "addProductBtn" }],
+          [{ text: "BOT's Manual page", callback_data: "helpBtn" }],
+        ],
+      },
+    });
+    addUser(ctx.wizard.state);
+    return ctx.scene.leave();
+  }
+);
+
+const addProductWizard = new WizardScene(
+  "addProduct",
+  async (ctx) => {
+    await ctx.replyWithMarkdown("*Please enter the link of the product*");
+    ctx.wizard.state.userid = ctx.chat.id;
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    if (!isValidURL(ctx.message.text)) {
+      await ctx.replyWithMarkdown("*Invalid URL!*");
+      return ctx.scene.leave();
+    }
+    ctx.wizard.state.url = ctx.message.text;
+
+    ctx.wizard.state.name = await getProductName(ctx.wizard.state.url);
+    await ctx.replyWithMarkdown(`*Product is* ${ctx.wizard.state.name}`);
+    ctx.wizard.state.initPrice = await curPrice(ctx.wizard.state.url);
+    await ctx.replyWithMarkdown(
+      `Current price is *${ctx.wizard.state.initPrice}rs*`
+    );
+    await ctx.replyWithMarkdown(
+      "*Enter the price you want to be notified for*"
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    ctx.wizard.state.dropPrice = parseInt(ctx.message.text);
+    await ctx.replyWithMarkdown(
+      `*Alert added for ${ctx.wizard.state.dropPrice}rs*`
+    );
+    addProduct(ctx.scene.state);
+    handleBtncmd(ctx);
+
+    return ctx.scene.leave();
+  }
+);
+
+const deleteWizard = new WizardScene(
+  "deleteProduct",
+  async (ctx) => {
+    await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
+    await ctx.replyWithMarkdown(
+      "Send The *4-Digit code* of the product that you want to remove.(Send *q* to exit)"
+    );
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    if (ctx.message.text.toLowerCase() === "q") {
+      return ctx.scene.leave();
+    } else {
+      uniqid = ctx.message.text;
+      Product.findOne({ uniqid }).exec((err, product) => {
+        if (err || !product) {
+          ctx.replyWithMarkdown("*Something went wrong!*");
+          console.log(err);
+        } else {
+          product
+            .remove()
+            .then((product) => {
+              ctx.replyWithMarkdown(`*Removed* ${product.name}`);
+              handleBtncmd(ctx);
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }
+      });
+    }
+    return ctx.scene.leave();
+  }
+);
+
+/* ----------------------------------------------------------------- */
+
+const stage = new Stage([newUserWizard, addProductWizard, deleteWizard]);
+bot.use(stage.middleware());
+
+/* -------------------------- bot events --------------------------- */
+
+bot.start(async (ctx) => {
+  ctx.scene.enter("newUser");
+});
+
+bot.command("add", (ctx) => {
+  ctx.scene.enter("addProduct");
+});
+
+bot.command("kick", (ctx) => {
+  handleKickcmd(ctx);
+});
+
+bot.command("log", async (ctx) => {
+  handleLogging(ctx);
+});
+
+bot.command("list", async (ctx) => {
+  handleDeletecmd(ctx);
+});
+
+bot.command("help", async (ctx) => {
+  handleHelp(ctx);
+});
+
+bot.command("btn", async (ctx) => {
+  handleBtncmd(ctx);
+});
+
+bot.action("addProductBtn", (ctx) => {
+  ctx.deleteMessage();
+  ctx.scene.enter("addProduct");
+});
+
+bot.action("deleteBtn", (ctx) => {
+  ctx.deleteMessage();
+  handleDeletecmd(ctx);
+});
+
+bot.action("kickBtn", (ctx) => {
+  ctx.deleteMessage();
+  handleKickcmd(ctx);
+});
+bot.action("helpBtn", (ctx) => {
+  ctx.deleteMessage();
+  handleHelp(ctx);
+});
+
+/* -------------------------------------------------------------------- */
+
+/* ----------------------- command handlers --------------------------- */
+
+const handleBtncmd = async (ctx) => {
+  bot.telegram.sendMessage(ctx.chat.id, "CLICK ON BELOW BUTTON(s) TO:", {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "Add a Product for tracking",
+            callback_data: "addProductBtn",
+          },
+        ],
+        [
+          {
+            text: "Display Or Delete saved product(s)",
+            callback_data: "deleteBtn",
+          },
+        ],
+        [
+          {
+            text: "Resume/Pause Notifications",
+            callback_data: "kickBtn",
+          },
+        ],
+        [{ text: "BOT's Manual page", callback_data: "helpBtn" }],
+      ],
+    },
+  });
+};
+
+const handleKickcmd = async (ctx) => {
+  User.findOne({ userid: ctx.chat.id }).then(({ _id, pause }) => {
+    pause = !pause;
+    User.findByIdAndUpdate(
+      _id,
+      { $set: { pause } },
+      { new: true },
+      (err, res) => {
+        if (err) {
+          console.log(err);
+        } else {
+          ctx.replyWithMarkdown(
+            `*Tracking ${res.pause ? "Paused" : "Resumed"}*`
+          );
+        }
+      }
+    );
+  });
+};
+
+const handleDeletecmd = async (ctx) => {
+  Product.find({ userid: ctx.chat.id }).then(async (products) => {
+    if (products.length) {
+      products.forEach(async (product, i) => {
+        await ctx.replyWithMarkdown(
+          `☛ ${product.name.slice(0, 40)} CODE => *${product.uniqid}*`
+        );
+      });
+      ctx.scene.enter("deleteProduct");
+    } else {
+      await ctx.replyWithHTML(
+        "★ Tracking list is Empty use /add command to track products. ★"
+      );
+      await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
+      handleBtncmd(ctx);
+    }
+  });
+};
+
+const handleHelp = async (ctx) => {
+  ctx.replyWithMarkdown(
+    "*ALL AVAILABLE COMMANDS:*\n✔ USE /add command to track a product \n✔USE /list command to display and delete product(s)\n✔USE /kick command to pause the notifications."
+  );
+  handleBtncmd(ctx);
+};
+
+const handleLogging = async (ctx) => {
+  if (ctx.chat.id == 601430671) {
+    User.find().then((users) => {
+      let userStr = users.map(({ email, userid }) => ({ email, userid }));
+      bot.telegram.sendMessage(601430671, userStr);
+    });
+  }
+};
+
+/* ---------------------------------------------------------------------- */
+
+/* ---------------------- Utility functions ----------------------------- */
+
 async function getProductName(url) {
   let key;
   let productName;
@@ -101,167 +344,12 @@ async function curPrice(url) {
   return price;
 }
 
-const newUserWizard = new WizardScene(
-  "newUser",
-  async (ctx) => {
-    await ctx.replyWithMarkdown(
-      "*Please enter the email you want to be notified to*"
-    );
-    ctx.wizard.state.userid = ctx.chat.id;
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    ctx.wizard.state.email = ctx.message.text;
-    await ctx.replyWithMarkdown(
-      "use */add command* for adding a price drop alert."
-    );
-    addUser(ctx.wizard.state);
-    return ctx.scene.leave();
-  }
-);
-
 function isValidURL(string) {
   var res = string.match(
     /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g
   );
   return res !== null;
 }
-
-const addProductWizard = new WizardScene(
-  "addProduct",
-  async (ctx) => {
-    await ctx.replyWithMarkdown("*Please enter the link of the product*");
-    ctx.wizard.state.userid = ctx.chat.id;
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    if (!isValidURL(ctx.message.text)) {
-      await ctx.replyWithMarkdown("*Invalid URL!*");
-      return ctx.scene.leave();
-    }
-    ctx.wizard.state.url = ctx.message.text;
-
-    ctx.wizard.state.name = await getProductName(ctx.wizard.state.url);
-    await ctx.replyWithMarkdown(`*Product is* ${ctx.wizard.state.name}`);
-    ctx.wizard.state.initPrice = await curPrice(ctx.wizard.state.url);
-    await ctx.replyWithMarkdown(
-      `Current price is *${ctx.wizard.state.initPrice}rs*`
-    );
-    await ctx.replyWithMarkdown(
-      "*Enter the price you want to be notified for*"
-    );
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    ctx.wizard.state.dropPrice = parseInt(ctx.message.text);
-    //  add anydrop here later
-    await ctx.replyWithMarkdown(
-      `*Alert added for ${ctx.wizard.state.dropPrice}rs*`
-    );
-    addProduct(ctx.scene.state);
-    return ctx.scene.leave();
-  }
-);
-
-const deleteWizard = new WizardScene(
-  "deleteProduct",
-  async (ctx) => {
-    await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
-    await ctx.replyWithMarkdown(
-      "Send The *4-Digit code* of the product that you want to remove.(Send *q* to exit)"
-    );
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    if (ctx.message.text === "q") {
-      return ctx.scene.leave();
-    } else {
-      uniqid = ctx.message.text;
-      Product.findOne({ uniqid }).exec((err, product) => {
-        if (err || !product) {
-          ctx.replyWithMarkdown("*Something went wrong!*");
-          console.log(err);
-        } else {
-          product
-            .remove()
-            .then((product) => {
-              ctx.replyWithMarkdown(`*Removed* ${product.name}`);
-            })
-            .catch((err) => {
-              console.log(err);
-            });
-        }
-      });
-    }
-    return ctx.scene.leave();
-  }
-);
-
-const stage = new Stage([newUserWizard, addProductWizard, deleteWizard]);
-bot.use(stage.middleware());
-
-bot.start(async (ctx) => {
-  ctx.scene.enter("newUser");
-});
-
-bot.command("add", (ctx) => {
-  ctx.scene.enter("addProduct");
-});
-
-bot.command("kick", (ctx) => {
-  User.findOne({ userid: ctx.chat.id }).then(({ _id, pause }) => {
-    pause = !pause;
-    User.findByIdAndUpdate(
-      _id,
-      { $set: { pause } },
-      { new: true },
-      (err, res) => {
-        if (err) {
-          console.log(err);
-        } else {
-          ctx.replyWithMarkdown(
-            `*Tracking ${res.pause ? "Paused" : "Resumed"}*`
-          );
-        }
-      }
-    );
-  });
-});
-
-bot.command("/log", async (ctx) => {
-  if (ctx.chat.id == 601430671) {
-    User.find().then((users) => {
-      let userStr = users.map(({ email, userid }) => ({ email, userid }));
-      bot.telegram.sendMessage(601430671, userStr);
-    });
-  }
-});
-
-bot.command("/list", async (ctx) => {
-  Product.find({ userid: ctx.chat.id }).then(async (products) => {
-    if (products.length) {
-      products.forEach(async (product, i) => {
-        await ctx.replyWithMarkdown(
-          `☛ ${product.name.slice(0, 40)} CODE => *${product.uniqid}*`
-        );
-      });
-      ctx.scene.enter("deleteProduct");
-    } else {
-      await ctx.replyWithHTML(
-        "★ Tracking list is Empty use /add command to track products. ★"
-      );
-      await ctx.replyWithHTML("★★★ work of @victorakaps ★★★");
-    }
-  });
-});
-
-bot.command("/help", async (ctx) => {
-  ctx.replyWithMarkdown(
-    "✔ USE /add command to track a product \n✔USE /list command to display and delete product(s)\n✔USE /kick command to pause the notifications."
-  );
-});
-
-bot.launch();
 
 const trackPrices = async () => {
   Product.find().then((products) => {
@@ -370,3 +458,7 @@ async function startTracking() {
   );
   job.start();
 }
+
+/* ------------------------------------------------------------- */
+
+bot.launch();

@@ -19,8 +19,9 @@
 
 #### TO DO
 
-- Add inline menu.
-- Add anydrop command.
+[x] Add inline menu
+[] Add anydrop command
+[] improve error and excetion handling.
 
 #### Available Commands
 
