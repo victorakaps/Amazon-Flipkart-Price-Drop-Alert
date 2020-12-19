@@ -14,11 +14,11 @@
 #### What's New
 
     - Connected to MongoDB.
-    - improved bot interaction.
+    - improved bot interaction(added inline btns)
     - products can now be deleted.
 
 #### TO DO
-   :white_check_mark: Add inline menu
+   :heavy_check_mark: Add inline menu
    :white_check_mark: Add anydrop command
    :white_check_mark: improve error and excetion handling.
 
