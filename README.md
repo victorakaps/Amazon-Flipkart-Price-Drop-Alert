@@ -18,9 +18,9 @@
     - products can now be deleted.
 
 #### TO DO
-   :heavy_check_mark: Add inline menu
-   :white_check_mark: Add anydrop command
-   :white_check_mark: improve error and excetion handling.
+   ✅ Add inline menu
+   ⬜️ Add anydrop command
+   ⬜️ improve error and excetion handling.
 
 #### Available Commands
 
